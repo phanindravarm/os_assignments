@@ -92,7 +92,11 @@ void ls_l()
                 cout << " ";
                 cout << getpwuid(s.st_uid)->pw_name << " ";
                 cout << getgrgid(s.st_gid)->gr_name << " ";
-                cout << s.st_mtime << " ";
+                struct tm *tm;
+                char time[200];
+                tm = localtime(&s.st_mtime);
+                strftime(time, sizeof(time), "%b %d %H:%M", tm);
+                cout << time << " ";
                 cout << en->d_name;
                 cout << endl;
             }
