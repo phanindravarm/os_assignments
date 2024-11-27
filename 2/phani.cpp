@@ -6,6 +6,7 @@
 #include <pwd.h>
 #include <grp.h>
 #include <ctime>
+#include <sstream>
 using namespace std;
 void eraseBlanks(string &cmd)
 {
@@ -24,13 +25,10 @@ void echo(string cmd)
     }
 
     eraseBlanks(cmd);
-    for (int i = 0; i < sizeof(cmd); i++)
-    {
-        cout << cmd[i];
-    }
+    cout << cmd;
     cout << endl;
 }
-void ls()
+void ls(int a, int l)
 {
     DIR *dr;
     struct dirent *en;
@@ -39,36 +37,11 @@ void ls()
     {
         while ((en = readdir(dr)) != NULL)
         {
-            if ((en->d_name[0] != '.'))
-                cout << en->d_name << endl;
-        }
-        closedir(dr);
-    }
-}
-void ls_a()
-{
-    DIR *dr;
-    struct dirent *en;
-    dr = opendir(".");
-    if (dr)
-    {
-        while ((en = readdir(dr)) != nullptr)
-        {
-            cout << en->d_name << endl;
-        }
-    }
-}
-
-void ls_l()
-{
-    DIR *dr;
-    struct dirent *en;
-    dr = opendir(".");
-    if (dr)
-    {
-        while ((en = readdir(dr)) != nullptr)
-        {
-            if ((en->d_name[0] != '.'))
+            if (!a && en->d_name[0] == '.')
+            {
+                continue;
+            }
+            if (l)
             {
                 struct stat s;
                 if (stat(en->d_name, &s) == 0)
@@ -97,51 +70,8 @@ void ls_l()
                 tm = localtime(&s.st_mtime);
                 strftime(time, sizeof(time), "%b %d %H:%M", tm);
                 cout << time << " ";
-                cout << en->d_name;
-                cout << endl;
             }
-        }
-        closedir(dr);
-    }
-}
-
-void ls_la()
-{
-    DIR *dr;
-    struct dirent *en;
-    dr = opendir(".");
-    if (dr)
-    {
-        while ((en = readdir(dr)) != nullptr)
-        {
-
-            {
-                struct stat s;
-                if (stat(en->d_name, &s) == 0)
-                {
-                    if (s.st_mode & S_IFDIR)
-                    {
-                        cout << "d";
-                    }
-                    else
-                        cout << "-";
-                }
-                cout << ((s.st_mode & S_IRUSR) ? "r" : "-");
-                cout << ((s.st_mode & S_IWUSR) ? "w" : "-");
-                cout << ((s.st_mode & S_IXUSR) ? "x" : "-");
-                cout << ((s.st_mode & S_IRGRP) ? "r" : "-");
-                cout << ((s.st_mode & S_IWGRP) ? "w" : "-");
-                cout << ((s.st_mode & S_IXGRP) ? "x" : "-");
-                cout << ((s.st_mode & S_IROTH) ? "r" : "-");
-                cout << ((s.st_mode & S_IWOTH) ? "w" : "-");
-                cout << ((s.st_mode & S_IXOTH) ? "x" : "-");
-                cout << " ";
-                cout << getpwuid(s.st_uid)->pw_name << " ";
-                cout << getgrgid(s.st_gid)->gr_name << " ";
-                cout << s.st_mtime << " ";
-                cout << en->d_name;
-                cout << endl;
-            }
+            cout << en->d_name << endl;
         }
         closedir(dr);
     }
@@ -194,11 +124,9 @@ int main()
             if (chdir(path.c_str()))
             {
                 cout << "cd: no such file or directory: " << path << endl;
-                p = "";
             }
             else
             {
-                p = path;
                 getcwd(cwd, sizeof(cwd));
             }
         }
@@ -212,59 +140,44 @@ int main()
         }
         else if (cmd.substr(0, 2) == "ls")
         {
-            int i = 0;
-            while (i < 2)
+            int l = 0;
+            int a = 0;
+            int x = 0;
+            for (int i = 0; i < 2; i++)
             {
                 cmd.erase(cmd.begin());
-                i++;
             }
-            eraseBlanks(cmd);
-            if (cmd.substr(0, 2) == "-a")
+            stringstream c(cmd);
+            string word;
+            while (c >> word)
             {
-                int i = 0;
-                while (i < 2)
+                if (word == "-a")
                 {
-                    cmd.erase(cmd.begin());
-                    i++;
+                    a = 1;
                 }
-                eraseBlanks(cmd);
-                if (cmd == "-l" || cmd == "l")
+                else if (word == "-l")
                 {
-                    ls_la();
+                    l = 1;
                 }
-                else if (cmd == "")
+                else if (word == "-la" || word == "-al")
                 {
-                    ls_a();
+                    a = 1;
+                    l = 1;
                 }
                 else
-                    cout << "wrong command " << endl;
+                {
+                    x = 1;
+                    break;
+                }
             }
-            else if (cmd.substr(0, 2) == "-l")
+            if (x)
             {
-                int i = 0;
-                while (i < 2)
-                {
-                    cmd.erase(cmd.begin());
-                    i++;
-                }
-                eraseBlanks(cmd);
-                if (cmd == "-a" || cmd == "a")
-                {
-                    ls_la();
-                }
-                else if (cmd == "")
-                {
-                    ls_l();
-                }
-                else
-                    cout << "wrong command " << endl;
-            }
-            else if (cmd == "")
-            {
-                ls();
+                cout << "wrong" << endl;
             }
             else
-                cout << "wrong command " << endl;
+            {
+                ls(a, l);
+            }
         }
     }
 }
