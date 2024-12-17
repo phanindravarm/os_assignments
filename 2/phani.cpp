@@ -178,7 +178,11 @@ int main()
             {
                 ls(a, l);
             }
-            // cout<<
+        }
+        else
+        {
+            const char *c = cmd.c_str();
+            system(c);
         }
     }
 }
