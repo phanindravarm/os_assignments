@@ -168,7 +168,7 @@ void spacing(string &cmd)
 {
     for (int i = 0; i < cmd.size(); i++)
     {
-        if (cmd[i] == '&' && cmd[i] != " & ")
+        if (cmd[i] == '&')
         {
             cmd.insert(cmd.begin() + i, ' ');
             cmd.insert(cmd.begin() + i + 2, ' ');
@@ -181,8 +181,6 @@ void sortProcess(string cmd, vector<string> &bProcess, string &fProcess)
     stringstream cmdStream(cmd);
     string word;
     vector<string> commands;
-
-    cout << "hey cmd : " << cmd << endl;
     while (cmdStream >> word)
     {
         commands.push_back(word);
@@ -192,15 +190,17 @@ void sortProcess(string cmd, vector<string> &bProcess, string &fProcess)
     {
         word = commands[i];
 
-        if (word.back() == '&' || commands[i + 1] == "&")
+        if (word.back() == '&')
         {
-            if (word.back() == '&')
-            {
-                word.pop_back();
-                bProcess.push_back(word);
-            }
-            else
-                bProcess.push_back(commands[i]);
+
+            word.pop_back();
+            bProcess.push_back(word);
+        }
+
+        else if (i + 1 < commands.size() && commands[i + 1] == "&")
+        {
+            bProcess.push_back(word);
+            ++i;
         }
         else
         {
@@ -247,23 +247,26 @@ int main()
         int i = check(cmd);
         if (i)
         {
-            cout << "entered i " << endl;
             vector<string> bProcess;
             string fProcess;
             sortProcess(cmd, bProcess, fProcess);
             cmd = fProcess;
-            cout << "cmd : " << cmd << endl;
+            // for (int i = 0; i < bProcess.size(); i++)
+            // {
+            //     if (bProcess[i] == " ")
+            //     {
+            //         bProcess.erase(bProcess.begin() + i);
+            //     }
+            // }
+            cout << "bP " << endl;
             for (int i = 0; i < bProcess.size(); i++)
             {
-                if (bProcess[i] == " ")
-                {
-                    bProcess.erase(bProcess.begin() + i + 1);
-                }
+                cout << bProcess[i] << " ";
             }
-            cout << "bP : " << bProcess.size() << endl;
             cout << endl;
-            // background(bProcess);
+            background(bProcess);
         }
+        cout << "cmd : " << cmd << endl;
         if (cmd == "exit")
         {
             cout << "Exiting shell......";
