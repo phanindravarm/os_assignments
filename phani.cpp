@@ -11,8 +11,11 @@
 #include <sys/sysctl.h>
 #include <vector>
 #include <string>
+#include <map>
 
 using namespace std;
+map<string, function<void(string)>> commands;
+
 void eraseBlanks(string &cmd)
 {
     while (!cmd.empty() && cmd[0] == ' ')
@@ -120,14 +123,6 @@ void ls(string cmd)
 }
 void echo(string cmd)
 {
-    int i = 0;
-    while (i < 4)
-    {
-        cmd.erase(cmd.begin());
-        i++;
-    }
-
-    eraseBlanks(cmd);
     cout << cmd;
     cout << endl;
 }
@@ -147,23 +142,7 @@ void pinfo()
     proc_pidinfo(pid, PROC_PIDTASKINFO, 0, &task_info, sizeof(task_info));
     cout << "-" << task_info.pti_virtual_size << "{Virtual Memory}";
 }
-void background(vector<string> bProcess)
-{
-    // cout << "bProcess : " << bProcess.size() << endl;
-    for (int i = 0; i < bProcess.size(); i++)
-    {
 
-        pid_t pid = fork();
-        if (pid == 0)
-        {
-            sleep(2);
-            cout << endl;
-            cout << "after waiting : " << endl;
-            const char *c = bProcess[i].c_str();
-            system(c);
-        }
-    }
-}
 void spacing(string &cmd)
 {
     for (int i = 0; i < cmd.size(); i++)
@@ -198,7 +177,7 @@ void sortProcess(string cmd, vector<string> &bProcess, string &fProcess)
         string command = "";
         for (; i < commands.size() && commands[i] != "&"; i++)
         {
-            command = command + commands[i];
+            command = command + " " + commands[i];
         }
         endwithAnd = false;
         bProcess.push_back(command);
@@ -209,8 +188,50 @@ void sortProcess(string cmd, vector<string> &bProcess, string &fProcess)
         bProcess.pop_back();
     }
 }
+void mapCommands()
+{
+    commands["ls"] = ls;
+    commands["echo"] = echo;
+}
+void exeCommands(string cmd)
+{
+    int pos = cmd.find(' ');
+    string command = cmd.substr(0, pos);
+    string next;
+    if (pos != string::npos)
+    {
+        next = cmd.substr(pos + 1);
+    }
+    else
+        next = "";
+    if (commands.find(command) != commands.end())
+    {
+        commands[command](next);
+    }
+}
+void background(vector<string> bProcess)
+{
+    // cout << "bProcess : " << bProcess.size() << endl;
+    for (int i = 0; i < bProcess.size(); i++)
+    {
+
+        pid_t pid = fork();
+        if (pid == 0)
+        {
+            sleep(2);
+            cout << endl;
+            cout << "after waiting : " << endl;
+            const char *c = bProcess[i].c_str();
+            system(c);
+            exit(0);
+
+            exit(0);
+        }
+    }
+}
 int main()
 {
+    mapCommands();
     char *name = getenv("USER");
     char hostName[200];
     char cwd[200];
@@ -255,6 +276,7 @@ int main()
             background(bProcess);
         }
         eraseBlanks(cmd);
+
         if (cmd == "exit")
         {
             cout << "Exiting shell......";
@@ -275,23 +297,27 @@ int main()
                 getcwd(cwd, sizeof(cwd));
             }
         }
+
         else if (cmd.substr(0, 3) == "pwd")
         {
+            cout << cwd << endl;
         }
-        else if (cmd.substr(0, 5) == "echo ")
-        {
+        else
+            exeCommands(cmd);
+        // int pos = cmd.find(' ');
+        // string command = cmd.substr(0, pos);
+        // string next;
+        // if (pos != string::npos)
+        // {
+        //     next = cmd.substr(pos + 1);
+        // }
+        // else
+        //     next = "";
+        // if (commands.find(command) != commands.end())
+        // {
+        //     commands[command](next);
+        // }
 
-            echo(cmd);
-        }
-        else if (cmd.substr(0, 2) == "ls")
-        {
-
-            ls(cmd);
-        }
-        else if (cmd == "pinfo")
-        {
-            pinfo();
-        }
         // else
         // {
         //     const char *c = cmd.c_str();
