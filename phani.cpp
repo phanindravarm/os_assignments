@@ -185,28 +185,28 @@ void sortProcess(string cmd, vector<string> &bProcess, string &fProcess)
     {
         commands.push_back(word);
     }
-
+    bool endwithAnd = false;
     for (int i = 0; i < commands.size(); i++)
     {
-        word = commands[i];
-
-        if (word.back() == '&')
+        if (commands[i] == " ")
+            continue;
+        if (commands[i] == "&")
         {
-
-            word.pop_back();
-            bProcess.push_back(word);
+            endwithAnd = true;
+            continue;
         }
-
-        else if (i + 1 < commands.size() && commands[i + 1] == "&")
+        string command = "";
+        for (; i < commands.size() && commands[i] != "&"; i++)
         {
-            bProcess.push_back(word);
-            ++i;
+            command = command + commands[i];
         }
-        else
-        {
-
-            fProcess = word;
-        }
+        endwithAnd = false;
+        bProcess.push_back(command);
+    }
+    if (!endwithAnd)
+    {
+        fProcess = bProcess.back();
+        bProcess.pop_back();
     }
 }
 int main()
@@ -251,22 +251,10 @@ int main()
             string fProcess;
             sortProcess(cmd, bProcess, fProcess);
             cmd = fProcess;
-            // for (int i = 0; i < bProcess.size(); i++)
-            // {
-            //     if (bProcess[i] == " ")
-            //     {
-            //         bProcess.erase(bProcess.begin() + i);
-            //     }
-            // }
-            cout << "bP " << endl;
-            for (int i = 0; i < bProcess.size(); i++)
-            {
-                cout << bProcess[i] << " ";
-            }
             cout << endl;
             background(bProcess);
         }
-        cout << "cmd : " << cmd << endl;
+        eraseBlanks(cmd);
         if (cmd == "exit")
         {
             cout << "Exiting shell......";
