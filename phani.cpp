@@ -9,6 +9,9 @@
 #include <sstream>
 #include <libproc.h>
 #include <sys/sysctl.h>
+#include <vector>
+#include <string>
+
 using namespace std;
 void eraseBlanks(string &cmd)
 {
@@ -20,21 +23,14 @@ void eraseBlanks(string &cmd)
 
 int check(string cmd)
 {
-    stringstream c(cmd);
-    string word;
-    int i = 0;
-    while (c >> word)
+    for (int i = 0; i < cmd.size(); i++)
     {
-        if (word == "&")
+        if (cmd[i] == '&')
         {
-            i = 1;
+            return 1;
         }
-        else if (word == " ")
-            i = 0;
-        else
-            i = -1;
     }
-    return i;
+    return 0;
 }
 
 void ls(string cmd)
@@ -71,53 +67,55 @@ void ls(string cmd)
             break;
         }
     }
-    if (x & (check(cmd) != 1))
+    if (x)
     {
-        cout << "wrong" << endl;
+        cout << "wrong ls" << endl;
     }
-
-    dr = opendir(".");
-    if (dr)
+    else
     {
-        while ((en = readdir(dr)) != NULL)
+        dr = opendir(".");
+        if (dr)
         {
-            if (!a && en->d_name[0] == '.')
+            while ((en = readdir(dr)) != NULL)
             {
-                continue;
-            }
-            if (l)
-            {
-                struct stat s;
-                if (stat(en->d_name, &s) == 0)
+                if (!a && en->d_name[0] == '.')
                 {
-                    if (s.st_mode & S_IFDIR)
-                    {
-                        cout << "d";
-                    }
-                    else
-                        cout << "-";
+                    continue;
                 }
-                cout << ((s.st_mode & S_IRUSR) ? "r" : "-");
-                cout << ((s.st_mode & S_IWUSR) ? "w" : "-");
-                cout << ((s.st_mode & S_IXUSR) ? "x" : "-");
-                cout << ((s.st_mode & S_IRGRP) ? "r" : "-");
-                cout << ((s.st_mode & S_IWGRP) ? "w" : "-");
-                cout << ((s.st_mode & S_IXGRP) ? "x" : "-");
-                cout << ((s.st_mode & S_IROTH) ? "r" : "-");
-                cout << ((s.st_mode & S_IWOTH) ? "w" : "-");
-                cout << ((s.st_mode & S_IXOTH) ? "x" : "-");
-                cout << " ";
-                cout << getpwuid(s.st_uid)->pw_name << " ";
-                cout << getgrgid(s.st_gid)->gr_name << " ";
-                struct tm *tm;
-                char time[200];
-                tm = localtime(&s.st_mtime);
-                strftime(time, sizeof(time), "%b %d %H:%M", tm);
-                cout << time << " ";
+                if (l)
+                {
+                    struct stat s;
+                    if (stat(en->d_name, &s) == 0)
+                    {
+                        if (s.st_mode & S_IFDIR)
+                        {
+                            cout << "d";
+                        }
+                        else
+                            cout << "-";
+                    }
+                    cout << ((s.st_mode & S_IRUSR) ? "r" : "-");
+                    cout << ((s.st_mode & S_IWUSR) ? "w" : "-");
+                    cout << ((s.st_mode & S_IXUSR) ? "x" : "-");
+                    cout << ((s.st_mode & S_IRGRP) ? "r" : "-");
+                    cout << ((s.st_mode & S_IWGRP) ? "w" : "-");
+                    cout << ((s.st_mode & S_IXGRP) ? "x" : "-");
+                    cout << ((s.st_mode & S_IROTH) ? "r" : "-");
+                    cout << ((s.st_mode & S_IWOTH) ? "w" : "-");
+                    cout << ((s.st_mode & S_IXOTH) ? "x" : "-");
+                    cout << " ";
+                    cout << getpwuid(s.st_uid)->pw_name << " ";
+                    cout << getgrgid(s.st_gid)->gr_name << " ";
+                    struct tm *tm;
+                    char time[200];
+                    tm = localtime(&s.st_mtime);
+                    strftime(time, sizeof(time), "%b %d %H:%M", tm);
+                    cout << time << " ";
+                }
+                cout << en->d_name << endl;
             }
-            cout << en->d_name << endl;
+            closedir(dr);
         }
-        closedir(dr);
     }
 }
 void echo(string cmd)
@@ -149,20 +147,65 @@ void pinfo()
     proc_pidinfo(pid, PROC_PIDTASKINFO, 0, &task_info, sizeof(task_info));
     cout << "-" << task_info.pti_virtual_size << "{Virtual Memory}";
 }
-void background(string cmd)
+void background(vector<string> bProcess)
 {
-    int i = check(cmd);
-
-    if (i == 1)
+    // cout << "bProcess : " << bProcess.size() << endl;
+    for (int i = 0; i < bProcess.size(); i++)
     {
-        int pos = cmd.find("&");
-        cmd.erase(pos + 1);
+
         pid_t pid = fork();
         if (pid == 0)
         {
             sleep(2);
+            cout << endl;
             cout << "after waiting : " << endl;
-            ls(cmd);
+            const char *c = bProcess[i].c_str();
+            system(c);
+        }
+    }
+}
+void spacing(string &cmd)
+{
+    for (int i = 0; i < cmd.size(); i++)
+    {
+        if (cmd[i] == '&' && cmd[i] != " & ")
+        {
+            cmd.insert(cmd.begin() + i, ' ');
+            cmd.insert(cmd.begin() + i + 2, ' ');
+            i = i + 2;
+        }
+    }
+}
+void sortProcess(string cmd, vector<string> &bProcess, string &fProcess)
+{
+    stringstream cmdStream(cmd);
+    string word;
+    vector<string> commands;
+
+    cout << "hey cmd : " << cmd << endl;
+    while (cmdStream >> word)
+    {
+        commands.push_back(word);
+    }
+
+    for (int i = 0; i < commands.size(); i++)
+    {
+        word = commands[i];
+
+        if (word.back() == '&' || commands[i + 1] == "&")
+        {
+            if (word.back() == '&')
+            {
+                word.pop_back();
+                bProcess.push_back(word);
+            }
+            else
+                bProcess.push_back(commands[i]);
+        }
+        else
+        {
+
+            fProcess = word;
         }
     }
 }
@@ -200,6 +243,27 @@ int main()
         cout << name << "@" << hostName << ":" << c << ">";
         getline(cin, cmd);
         eraseBlanks(cmd);
+        spacing(cmd);
+        int i = check(cmd);
+        if (i)
+        {
+            cout << "entered i " << endl;
+            vector<string> bProcess;
+            string fProcess;
+            sortProcess(cmd, bProcess, fProcess);
+            cmd = fProcess;
+            cout << "cmd : " << cmd << endl;
+            for (int i = 0; i < bProcess.size(); i++)
+            {
+                if (bProcess[i] == " ")
+                {
+                    bProcess.erase(bProcess.begin() + i + 1);
+                }
+            }
+            cout << "bP : " << bProcess.size() << endl;
+            cout << endl;
+            // background(bProcess);
+        }
         if (cmd == "exit")
         {
             cout << "Exiting shell......";
@@ -225,38 +289,22 @@ int main()
         }
         else if (cmd.substr(0, 5) == "echo ")
         {
-            int i = check(cmd);
-            cout << "i : " << i << endl;
-            if (i == 1)
-            {
-                background(cmd);
-            }
-            else
-                echo(cmd);
+
+            echo(cmd);
         }
         else if (cmd.substr(0, 2) == "ls")
         {
 
-            int i = check(cmd);
-            cout << " i : " << i << endl;
-            if (i == 1)
-            {
-                background(cmd);
-            }
-            else if (i == -1)
-            {
-                ls(cmd);
-            }
+            ls(cmd);
         }
         else if (cmd == "pinfo")
         {
             pinfo();
         }
-        else
-        {
-            // const char *c = cmd.c_str();
-            // system(c);
-            cout << "wrong cmd" << endl;
-        }
+        // else
+        // {
+        //     const char *c = cmd.c_str();
+        //     system(c);
+        // }
     }
 }
