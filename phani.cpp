@@ -12,10 +12,11 @@
 #include <vector>
 #include <string>
 #include <map>
+#include <sys/fcntl.h>
 
 using namespace std;
 map<string, function<void(string)>> commands;
-
+vector<pid_t> backgroundPIDs;
 void eraseBlanks(string &cmd)
 {
     while (!cmd.empty() && cmd[0] == ' ')
@@ -23,7 +24,6 @@ void eraseBlanks(string &cmd)
         cmd.erase(cmd.begin());
     }
 }
-
 int check(string cmd)
 {
     for (int i = 0; i < cmd.size(); i++)
@@ -35,22 +35,19 @@ int check(string cmd)
     }
     return 0;
 }
-
 void ls(string cmd)
 {
+    cout << "entered ls " << endl;
     DIR *dr;
     struct dirent *en;
     int l = 0;
     int a = 0;
     int x = 0;
-    for (int i = 0; i < 2; i++)
-    {
-        cmd.erase(cmd.begin());
-    }
     stringstream c(cmd);
     string word;
     while (c >> word)
     {
+        cout << "word : " << word << endl;
         if (word == "-a")
         {
             a = 1;
@@ -70,6 +67,8 @@ void ls(string cmd)
             break;
         }
     }
+    cout << "a : " << a << endl;
+    cout << "l : " << l << endl;
     if (x)
     {
         cout << "wrong ls" << endl;
@@ -126,7 +125,6 @@ void echo(string cmd)
     cout << cmd;
     cout << endl;
 }
-
 void pinfo()
 {
     pid_t pid = getpid();
@@ -142,7 +140,6 @@ void pinfo()
     proc_pidinfo(pid, PROC_PIDTASKINFO, 0, &task_info, sizeof(task_info));
     cout << "-" << task_info.pti_virtual_size << "{Virtual Memory}";
 }
-
 void spacing(string &cmd)
 {
     for (int i = 0; i < cmd.size(); i++)
@@ -211,23 +208,87 @@ void exeCommands(string cmd)
 }
 void background(vector<string> bProcess)
 {
-    // cout << "bProcess : " << bProcess.size() << endl;
     for (int i = 0; i < bProcess.size(); i++)
     {
-
         pid_t pid = fork();
         if (pid == 0)
         {
-            sleep(2);
+            cout << "bProcess : " << bProcess[i] << endl;
+            sleep(5);
             cout << endl;
             cout << "after waiting : " << endl;
             const char *c = bProcess[i].c_str();
             system(c);
-            exit(0);
-
+            backgroundPIDs.erase(backgroundPIDs.begin());
             exit(0);
         }
+        else if (pid > 0)
+        {
+            backgroundPIDs.push_back(pid);
+        }
     }
+}
+void printBackgroundPIDs()
+{
+    cout << "BProcess PIDs: " << endl;
+    for (pid_t pid : backgroundPIDs)
+    {
+        cout << pid << endl;
+    }
+}
+int checkRedirect(string cmd)
+{
+    int pos = cmd.find('>');
+    if (pos != string::npos)
+    {
+        return pos;
+    }
+    return 0;
+}
+void redirect(string cmd)
+{
+    int pos = cmd.find('>');
+
+    int pos1 = cmd.find(' ');
+
+    string command;
+    string next;
+    string file;
+    if (pos1 != string::npos)
+    {
+        command = cmd.substr(0, pos1);
+        next = cmd.substr(pos1 + 1, pos - pos1 - 1);
+    }
+    else
+    {
+        command = cmd.substr(0, pos);
+    }
+
+    if (pos != string::npos)
+    {
+        file = cmd.substr(pos + 1);
+        eraseBlanks(file);
+    }
+    int fd = open(file.c_str(), O_WRONLY | O_CREAT | O_TRUNC, S_IRUSR | S_IWUSR);
+    if (fd == -1)
+    {
+        perror("fd");
+        return;
+    }
+    if (dup2(fd, 1) == -1)
+    {
+        perror("dup2");
+        close(fd);
+        return;
+    }
+    cout << "command : " << command << endl;
+    cout << "next : " << next << endl;
+    if (commands.find(command) != commands.end())
+    {
+        commands[command](next);
+    }
+    close(fd);
+    return;
 }
 int main()
 {
@@ -301,6 +362,14 @@ int main()
         else if (cmd.substr(0, 3) == "pwd")
         {
             cout << cwd << endl;
+        }
+        else if (cmd == "jobs")
+        {
+            printBackgroundPIDs();
+        }
+        else if (checkRedirect(cmd))
+        {
+            redirect(cmd);
         }
         else
             exeCommands(cmd);

@@ -1,0 +1,11 @@
+runme
+test.cpp
+1
+phani.cpp
+ls.txt
+README.md
+>ls.txt
+phani.txt
+2
+phani@MarshMell.local:~/os_assignments/2>hey
+phani@MarshMell.local:~/os_assignments/2>phani@MarshMell.local:~/os_assignments/2>phani@MarshMell.local:~/os_assignments/2>
