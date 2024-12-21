@@ -37,7 +37,6 @@ int check(string cmd)
 }
 void ls(string cmd)
 {
-    cout << "entered ls " << endl;
     DIR *dr;
     struct dirent *en;
     int l = 0;
@@ -47,7 +46,6 @@ void ls(string cmd)
     string word;
     while (c >> word)
     {
-        cout << "word : " << word << endl;
         if (word == "-a")
         {
             a = 1;
@@ -67,8 +65,6 @@ void ls(string cmd)
             break;
         }
     }
-    cout << "a : " << a << endl;
-    cout << "l : " << l << endl;
     if (x)
     {
         cout << "wrong ls" << endl;
@@ -205,6 +201,11 @@ void exeCommands(string cmd)
     {
         commands[command](next);
     }
+    else
+    {
+        const char *c = cmd.c_str();
+        system(c);
+    }
 }
 void background(vector<string> bProcess)
 {
@@ -247,48 +248,49 @@ int checkRedirect(string cmd)
 }
 void redirect(string cmd)
 {
-    int pos = cmd.find('>');
-
-    int pos1 = cmd.find(' ');
-
-    string command;
-    string next;
-    string file;
-    if (pos1 != string::npos)
+    size_t pos = cmd.find('>');
+    if (pos == string::npos)
     {
-        command = cmd.substr(0, pos1);
-        next = cmd.substr(pos1 + 1, pos - pos1 - 1);
-    }
-    else
-    {
-        command = cmd.substr(0, pos);
+        return;
     }
 
-    if (pos != string::npos)
-    {
-        file = cmd.substr(pos + 1);
-        eraseBlanks(file);
-    }
+    string command = cmd.substr(0, pos);
+    string file = cmd.substr(pos + 1);
+    eraseBlanks(command);
+    eraseBlanks(file);
+
+    int stdout_copy = dup(STDOUT_FILENO);
     int fd = open(file.c_str(), O_WRONLY | O_CREAT | O_TRUNC, S_IRUSR | S_IWUSR);
     if (fd == -1)
     {
         perror("fd");
+        close(stdout_copy);
         return;
     }
-    if (dup2(fd, 1) == -1)
+
+    if (dup2(fd, STDOUT_FILENO) == -1)
     {
         perror("dup2");
         close(fd);
+        close(stdout_copy);
         return;
     }
-    cout << "command : " << command << endl;
-    cout << "next : " << next << endl;
+
+    close(fd);
+
     if (commands.find(command) != commands.end())
     {
-        commands[command](next);
+        commands[command]("");
     }
-    close(fd);
-    return;
+    else
+    {
+        const char *c = command.c_str();
+        system(c);
+    }
+
+    fflush(stdout);
+    dup2(stdout_copy, STDOUT_FILENO);
+    close(stdout_copy);
 }
 int main()
 {
@@ -373,21 +375,7 @@ int main()
         }
         else
             exeCommands(cmd);
-        // int pos = cmd.find(' ');
-        // string command = cmd.substr(0, pos);
-        // string next;
-        // if (pos != string::npos)
-        // {
-        //     next = cmd.substr(pos + 1);
-        // }
-        // else
-        //     next = "";
-        // if (commands.find(command) != commands.end())
-        // {
-        //     commands[command](next);
-        // }
 
-        // else
         // {
         //     const char *c = cmd.c_str();
         //     system(c);
