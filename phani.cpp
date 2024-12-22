@@ -240,11 +240,12 @@ void printBackgroundPIDs()
 int checkRedirect(string cmd)
 {
     int pos = cmd.find('>');
-    if (pos != string::npos)
+    int pos1 = cmd.find(">>");
+    if (pos == string::npos && pos1 == string::npos)
     {
-        return pos;
+        return 0;
     }
-    return 0;
+    return (pos1 != string::npos) ? pos1 : pos;
 }
 void redirect(string cmd)
 {
@@ -255,12 +256,26 @@ void redirect(string cmd)
     }
 
     string command = cmd.substr(0, pos);
-    string file = cmd.substr(pos + 1);
+    string file = cmd.substr(pos + (cmd[pos] == '>' && cmd[pos + 1] != '>' ? 1 : 2));
     eraseBlanks(command);
     eraseBlanks(file);
-
+    int i = 0;
+    while (i != string::npos && file[i] != ' ')
+    {
+        i++;
+    }
+    file = file.substr(0, i);
     int stdout_copy = dup(STDOUT_FILENO);
-    int fd = open(file.c_str(), O_WRONLY | O_CREAT | O_TRUNC, S_IRUSR | S_IWUSR);
+    int flags;
+    if (cmd[pos] == '>' && cmd[pos + 1] == '>')
+    {
+        flags = O_WRONLY | O_CREAT | O_APPEND;
+    }
+    else
+    {
+        flags = O_WRONLY | O_CREAT | O_TRUNC;
+    }
+    int fd = open(file.c_str(), flags, S_IRUSR | S_IWUSR);
     if (fd == -1)
     {
         perror("fd");
@@ -277,7 +292,6 @@ void redirect(string cmd)
     }
 
     close(fd);
-
     if (commands.find(command) != commands.end())
     {
         commands[command]("");
@@ -287,8 +301,6 @@ void redirect(string cmd)
         const char *c = command.c_str();
         system(c);
     }
-
-    fflush(stdout);
     dup2(stdout_copy, STDOUT_FILENO);
     close(stdout_copy);
 }
