@@ -214,7 +214,6 @@ void background(vector<string> bProcess)
         pid_t pid = fork();
         if (pid == 0)
         {
-            cout << "bProcess : " << bProcess[i] << endl;
             sleep(5);
             cout << endl;
             cout << "after waiting : " << endl;
@@ -240,12 +239,29 @@ void printBackgroundPIDs()
 int checkRedirect(string cmd)
 {
     int pos = cmd.find('>');
-    int pos1 = cmd.find(">>");
+    int pos1 = cmd.find('<');
     if (pos == string::npos && pos1 == string::npos)
     {
         return 0;
     }
-    return (pos1 != string::npos) ? pos1 : pos;
+    if (pos != string::npos && pos1 != string::npos)
+    {
+        if (pos1 < pos)
+        {
+            return 2;
+        }
+        else
+            return 1;
+    }
+    if (pos != string::npos)
+    {
+        return 1;
+    }
+    if (pos1 != string::npos)
+    {
+        return 2;
+    }
+    return 0;
 }
 void redirect(string cmd)
 {
@@ -304,6 +320,89 @@ void redirect(string cmd)
     dup2(stdout_copy, STDOUT_FILENO);
     close(stdout_copy);
 }
+void inputRedirect(string cmd)
+{
+
+    int pos = cmd.find('<');
+    int pos1 = cmd.find('>');
+    if (pos == string::npos)
+    {
+        return;
+    }
+    string command = cmd.substr(0, pos);
+    string file = cmd.substr(pos + 1);
+    eraseBlanks(command);
+    eraseBlanks(file);
+    int i = 0;
+    while (i != string::npos && file[i] != ' ')
+    {
+        i++;
+    }
+    file = file.substr(0, i);
+    int stdin_copy = dup(STDIN_FILENO);
+    int stdout_copy = dup(STDOUT_FILENO);
+    if (stdin_copy == -1)
+    {
+        perror("dup");
+        return;
+    }
+    int fd = open(file.c_str(), O_RDONLY);
+    if (fd == -1)
+    {
+        perror("open");
+        close(stdin_copy);
+        close(stdout_copy);
+        return;
+    }
+    if (dup2(fd, STDIN_FILENO) == -1)
+    {
+        perror("dup2");
+        close(fd);
+        close(stdin_copy);
+        close(stdout_copy);
+        return;
+    }
+    if (pos1 != string::npos)
+    {
+        string file1 = cmd.substr(pos1 + (cmd[pos1] == '>' && cmd[pos1 + 1] != '>' ? 1 : 2));
+        eraseBlanks(file1);
+        int flags = (cmd[pos1 + 1] == '>') ? O_WRONLY | O_CREAT | O_APPEND : O_WRONLY | O_CREAT | O_TRUNC;
+        int fd1 = open(file1.c_str(), flags, S_IRUSR | S_IWUSR);
+        if (fd1 == -1)
+        {
+            perror("open");
+            close(fd);
+            close(stdin_copy);
+            close(stdout_copy);
+            return;
+        }
+        if (dup2(fd1, STDOUT_FILENO) == -1)
+        {
+            perror("dup2");
+            close(fd1);
+            close(fd);
+            close(stdin_copy);
+            close(stdout_copy);
+            return;
+        }
+        close(fd1);
+    }
+    close(fd);
+    if (commands.find(command) != commands.end())
+    {
+        commands[command]("");
+    }
+    else
+    {
+        const char *c = command.c_str();
+        system(c);
+    }
+
+    dup2(stdin_copy, STDIN_FILENO);
+    dup2(stdout_copy, STDOUT_FILENO);
+    close(stdin_copy);
+    close(stdout_copy);
+}
 int main()
 {
     mapCommands();
@@ -327,6 +426,7 @@ int main()
     }
     string cmd;
     string p;
+
     while (true)
     {
         string c(cwd);
@@ -381,16 +481,13 @@ int main()
         {
             printBackgroundPIDs();
         }
+
         else if (checkRedirect(cmd))
         {
-            redirect(cmd);
+            checkRedirect(cmd) == 1 ? redirect(cmd) : inputRedirect(cmd);
         }
+
         else
             exeCommands(cmd);
-
-        // {
-        //     const char *c = cmd.c_str();
-        //     system(c);
-        // }
     }
 }
