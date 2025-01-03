@@ -236,7 +236,7 @@ int main()
         }
         else if (cmd.substr(0, 2) == "ls")
         {
-            
+
             int i = check(cmd);
             cout << " i : " << i << endl;
             if (i == 1)
