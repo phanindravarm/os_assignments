@@ -14,15 +14,8 @@ using namespace std;
 
 void sendFile(string file, int clientSocket)
 {
+    cout << "Entered sendFile function<<" << endl;
     ifstream myfile(file, ios::binary);
-    if (!myfile)
-    {
-        cerr << "File not found: " << file << endl;
-        char error[1024] = "no such file";
-        send(clientSocket, error, sizeof(error), 0);
-        return;
-    }
-
     myfile.seekg(0, ios::end);
     int fileSize = myfile.tellg();
     myfile.seekg(0, ios::beg);
@@ -40,38 +33,8 @@ void sendFile(string file, int clientSocket)
     }
     cout << "done file  " << endl;
     myfile.close();
+    cout << "Exiting sendFile function" << endl;
 }
-// void sendFile(string file, int clientSocket)
-// {
-//     ifstream myfile(file, ios::binary);
-//     if (!myfile)
-//     {
-//         cerr << "File not found: " << file << endl;
-//         char error[1024] = "no such file";
-//         send(clientSocket, error, sizeof(error), 0);
-//         return;
-//     }
-
-//     myfile.seekg(0, ios::end);
-//     int fileSize = myfile.tellg();
-//     myfile.seekg(0, ios::beg);
-
-//     // Send file size first
-//     fileSize = htonl(fileSize);
-//     send(clientSocket, &fileSize, sizeof(fileSize), 0);
-
-//     // Send file data in chunks
-//     const int bufferSize = 1024; // 1KB buffer size
-//     char buffer[bufferSize];
-//     while (!myfile.eof())
-//     {
-//         myfile.read(buffer, bufferSize);
-//         size_t bytesRead = myfile.gcount();
-//         send(clientSocket, buffer, bytesRead, 0); // Send only the bytes read
-//     }
-
-//     myfile.close();
-// }
 void fileRequests(int clientSocket)
 {
     while (true)
@@ -80,8 +43,8 @@ void fileRequests(int clientSocket)
         cout << "recv command from client" << endl;
 
         recv(clientSocket, command, sizeof(command), 0);
-
         string request(command);
+        cout << "request : " << request << endl;
         if (request == "exit")
         {
             break;
@@ -108,6 +71,7 @@ void fileRequests(int clientSocket)
                 else
                 {
                     char error[1024] = "no such file";
+
                     send(clientSocket, error, sizeof(error), 0);
                 }
             }
@@ -115,12 +79,13 @@ void fileRequests(int clientSocket)
             if (filesToSend.empty())
             {
                 char error[1024] = "no such file";
+                cout << "sending error message" << endl;
                 send(clientSocket, error, sizeof(error), 0);
             }
             else
             {
                 char doneMessage[1024] = "ok";
-                cout << "sent ok msg " << endl;
+                cout << "sending ok msg " << endl;
                 send(clientSocket, doneMessage, sizeof(doneMessage), 0);
                 int fileCount = htonl(filesToSend.size());
                 cout << "sending fileCount" << endl;

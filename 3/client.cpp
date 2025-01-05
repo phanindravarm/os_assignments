@@ -9,6 +9,7 @@
 using namespace std;
 void receiveFile(int clientSocket, string fileName)
 {
+    cout << "Entetered receiveFile function" << endl;
     ofstream file(fileName);
     int fileSize;
     cout << "recv fileSize" << endl;
@@ -24,41 +25,8 @@ void receiveFile(int clientSocket, string fileName)
         cout << "ch  : " << ch << endl;
         file << ch;
     }
-    cout << "exited recive file Loop : " << endl;
+    cout << "exited receiveFile function  " << endl;
 }
-// void receiveFile(int clientSocket, string fileName)
-// {
-//     ofstream file(fileName, ios::binary);
-//     if (!file)
-//     {
-//         cerr << "Error opening file for writing: " << fileName << endl;
-//         return;
-//     }
-
-//     int fileSize;
-//     recv(clientSocket, (char *)&fileSize, sizeof(fileSize), 0);
-//     fileSize = ntohl(fileSize); // Convert from network byte order to host byte order
-
-//     cout << "Receiving file: " << fileName << " with size " << fileSize << " bytes." << endl;
-
-//     const int bufferSize = 1024; // 1KB buffer size
-//     char buffer[bufferSize];
-//     int bytesReceived = 0;
-
-//     while (bytesReceived < fileSize)
-//     {
-//         int bytesToReceive = min(bufferSize, fileSize - bytesReceived);
-//         int bytesRead = recv(clientSocket, buffer, bytesToReceive, 0);
-//         if (bytesRead > 0)
-//         {
-//             file.write(buffer, bytesRead);
-//             bytesReceived += bytesRead;
-//         }
-//     }
-
-//     file.close();
-//     cout << "File received successfully!" << endl;
-// }
 void commandFiles(int clientSocket, string command)
 {
     cout << "sending command to srever : " << endl;
@@ -70,7 +38,8 @@ void commandFiles(int clientSocket, string command)
 
     if (message == "no such file" || message == "no such command")
     {
-        cout << "wrong";
+        cout << message << endl;
+        return;
     }
     else
     {
@@ -97,7 +66,7 @@ int main()
     sockaddr_in serverAddress;
     serverAddress.sin_family = AF_INET;
     serverAddress.sin_port = htons(8080);
-    serverAddress.sin_addr.s_addr = inet_addr("192.168.29.155");
+    serverAddress.sin_addr.s_addr = INADDR_ANY;
 
     if (connect(clientSocket, (struct sockaddr *)&serverAddress, sizeof(serverAddress)) < 0)
     {
