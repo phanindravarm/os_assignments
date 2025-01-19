@@ -198,7 +198,7 @@ void signalHandler(int signum)
 }
 void MIME(string file, string &contentType)
 {
-    int pos = file.find(".");
+    int pos = file.find_last_of(".");
     if (pos != string::npos)
     {
         string fileType = file.substr(pos);
