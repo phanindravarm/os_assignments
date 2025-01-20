@@ -1,3 +1,4 @@
+import { v4 as uuidv4 } from "https://cdn.jsdelivr.net/npm/uuid@8.3.2/dist/esm-browser/index.js";
 function enterHandler(event) {
   if (event.key === "Enter") {
     addTodo();
@@ -10,7 +11,11 @@ function addTodo() {
   if (task === "") {
     return;
   }
-  todoList.push(task);
+  const newTask = {
+    task: task,
+    id: uuidv4(),
+  };
+  todoList.push(newTask);
   element.value = "";
   saveToLocalStorage();
   renderList();
@@ -19,54 +24,43 @@ function addTodo() {
 function renderList() {
   let listHtml = "";
   todoList.forEach((toDo) => {
-    listHtml += `<li class="todo-list-element">${toDo}
-                       <button class="todo-delete-button">Delete</button>
-                       <button class="todo-done-button">Done</button>
-                     </li>`;
+    listHtml += `<li class="todo-list-element" data-id="${toDo.id}">${toDo.task}
+        <button class="todo-delete-button" data-id="${toDo.id}">Delete</button>
+        <button class="todo-done-button" data-id="${toDo.id}">Done</button>
+      </li>`;
   });
   document.querySelector(".todo-list").innerHTML = listHtml;
 
-  document
-    .querySelectorAll(".todo-delete-button")
-    .forEach((deleteButton, index) => {
-      deleteButton.addEventListener("click", () => {
-        todoList.splice(index, 1);
-        saveToLocalStorage();
-        renderList();
-      });
+  document.querySelectorAll(".todo-delete-button").forEach((button) => {
+    button.addEventListener("click", (event) => {
+      const id = event.target.dataset.id;
+      deleteTodo(id);
     });
+  });
 
-  document
-    .querySelectorAll(".todo-done-button")
-    .forEach((doneButton, index) => {
-      doneButton.addEventListener("click", () => {
-        let doneTask = todoList.splice(index, 1)[0];
-        doneList.push(doneTask);
-        saveToLocalStorage();
-        renderList();
-        renderDoneList();
-      });
+  document.querySelectorAll(".todo-done-button").forEach((button) => {
+    button.addEventListener("click", (event) => {
+      const id = event.target.dataset.id;
+      addDone(id);
     });
+  });
 }
 
 function renderDoneList() {
   let listHtml = "";
   doneList.forEach((toDo) => {
-    listHtml += `<li class="done-list-element">${toDo}
-                       <button class="done-delete-button">Delete</button>
-                     </li>`;
+    listHtml += `<li class="done-list-element" data-id="${toDo.id}">${toDo.task}
+                        <button class="done-delete-button" data-id="${toDo.id}">Delete</button>
+                  </li>`;
   });
   document.querySelector(".done-list").innerHTML = listHtml;
 
-  document
-    .querySelectorAll(".done-delete-button")
-    .forEach((deleteButton, index) => {
-      deleteButton.addEventListener("click", () => {
-        doneList.splice(index, 1);
-        saveToLocalStorage();
-        renderDoneList();
-      });
+  document.querySelectorAll(".done-delete-button").forEach((button) => {
+    button.addEventListener("click", (event) => {
+      const id = event.target.dataset.id;
+      deleteDone(id);
     });
+  });
 }
 
 function saveToLocalStorage() {
@@ -92,6 +86,29 @@ function clearLocalStorage(listName, listArray) {
   renderDoneList();
 }
 
+function deleteTodo(id) {
+  todoList = todoList.filter((list) => list.id !== id);
+  saveToLocalStorage();
+  renderList();
+}
+
+function addDone(id) {
+  const doneTask = todoList.find((list) => list.id === id);
+  if (doneTask) {
+    todoList = todoList.filter((list) => list.id !== id);
+    doneList.push(doneTask);
+    saveToLocalStorage();
+    renderList();
+    renderDoneList();
+  }
+}
+
+function deleteDone(id) {
+  doneList = doneList.filter((list) => list.id !== id);
+  saveToLocalStorage();
+  renderDoneList();
+}
+
 let todoList = [];
 let doneList = [];
 loadFromLocalStorage();
@@ -99,11 +116,9 @@ loadFromLocalStorage();
 document.querySelector(".todo-button").addEventListener("click", () => {
   addTodo();
 });
-
 document.querySelector(".todo-input").addEventListener("keydown", (event) => {
   enterHandler(event);
 });
-
 document.querySelector(".do-reset-button").addEventListener("click", () => {
   clearLocalStorage("todoList", todoList);
 });
