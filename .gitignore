@@ -3,6 +3,5 @@ server
 .vscode
 phani.txt
 varma.txt
-node_modules
-toDo/package-lock.json
-toDo/package.json
+settings.json
+2/runme

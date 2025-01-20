@@ -9,7 +9,14 @@
 #include <sstream>
 #include <libproc.h>
 #include <sys/sysctl.h>
+#include <vector>
+#include <string>
+#include <map>
+#include <sys/fcntl.h>
+
 using namespace std;
+map<string, function<void(string)>> commands;
+vector<pid_t> backgroundPIDs;
 void eraseBlanks(string &cmd)
 {
     while (!cmd.empty() && cmd[0] == ' ')
@@ -17,26 +24,17 @@ void eraseBlanks(string &cmd)
         cmd.erase(cmd.begin());
     }
 }
-
 int check(string cmd)
 {
-    stringstream c(cmd);
-    string word;
-    int i = 0;
-    while (c >> word)
+    for (int i = 0; i < cmd.size(); i++)
     {
-        if (word == "&")
+        if (cmd[i] == '&')
         {
-            i = 1;
+            return 1;
         }
-        else if (word == " ")
-            i = 0;
-        else
-            i = -1;
     }
-    return i;
+    return 0;
 }
-
 void ls(string cmd)
 {
     DIR *dr;
@@ -44,10 +42,6 @@ void ls(string cmd)
     int l = 0;
     int a = 0;
     int x = 0;
-    for (int i = 0; i < 2; i++)
-    {
-        cmd.erase(cmd.begin());
-    }
     stringstream c(cmd);
     string word;
     while (c >> word)
@@ -71,69 +65,62 @@ void ls(string cmd)
             break;
         }
     }
-    if (x & (check(cmd) != 1))
+    if (x)
     {
-        cout << "wrong" << endl;
+        cout << "wrong ls" << endl;
     }
-
-    dr = opendir(".");
-    if (dr)
+    else
     {
-        while ((en = readdir(dr)) != NULL)
+        dr = opendir(".");
+        if (dr)
         {
-            if (!a && en->d_name[0] == '.')
+            while ((en = readdir(dr)) != NULL)
             {
-                continue;
-            }
-            if (l)
-            {
-                struct stat s;
-                if (stat(en->d_name, &s) == 0)
+                if (!a && en->d_name[0] == '.')
                 {
-                    if (s.st_mode & S_IFDIR)
-                    {
-                        cout << "d";
-                    }
-                    else
-                        cout << "-";
+                    continue;
                 }
-                cout << ((s.st_mode & S_IRUSR) ? "r" : "-");
-                cout << ((s.st_mode & S_IWUSR) ? "w" : "-");
-                cout << ((s.st_mode & S_IXUSR) ? "x" : "-");
-                cout << ((s.st_mode & S_IRGRP) ? "r" : "-");
-                cout << ((s.st_mode & S_IWGRP) ? "w" : "-");
-                cout << ((s.st_mode & S_IXGRP) ? "x" : "-");
-                cout << ((s.st_mode & S_IROTH) ? "r" : "-");
-                cout << ((s.st_mode & S_IWOTH) ? "w" : "-");
-                cout << ((s.st_mode & S_IXOTH) ? "x" : "-");
-                cout << " ";
-                cout << getpwuid(s.st_uid)->pw_name << " ";
-                cout << getgrgid(s.st_gid)->gr_name << " ";
-                struct tm *tm;
-                char time[200];
-                tm = localtime(&s.st_mtime);
-                strftime(time, sizeof(time), "%b %d %H:%M", tm);
-                cout << time << " ";
+                if (l)
+                {
+                    struct stat s;
+                    if (stat(en->d_name, &s) == 0)
+                    {
+                        if (s.st_mode & S_IFDIR)
+                        {
+                            cout << "d";
+                        }
+                        else
+                            cout << "-";
+                    }
+                    cout << ((s.st_mode & S_IRUSR) ? "r" : "-");
+                    cout << ((s.st_mode & S_IWUSR) ? "w" : "-");
+                    cout << ((s.st_mode & S_IXUSR) ? "x" : "-");
+                    cout << ((s.st_mode & S_IRGRP) ? "r" : "-");
+                    cout << ((s.st_mode & S_IWGRP) ? "w" : "-");
+                    cout << ((s.st_mode & S_IXGRP) ? "x" : "-");
+                    cout << ((s.st_mode & S_IROTH) ? "r" : "-");
+                    cout << ((s.st_mode & S_IWOTH) ? "w" : "-");
+                    cout << ((s.st_mode & S_IXOTH) ? "x" : "-");
+                    cout << " ";
+                    cout << getpwuid(s.st_uid)->pw_name << " ";
+                    cout << getgrgid(s.st_gid)->gr_name << " ";
+                    struct tm *tm;
+                    char time[200];
+                    tm = localtime(&s.st_mtime);
+                    strftime(time, sizeof(time), "%b %d %H:%M", tm);
+                    cout << time << " ";
+                }
+                cout << en->d_name << endl;
             }
-            cout << en->d_name << endl;
+            closedir(dr);
         }
-        closedir(dr);
     }
 }
 void echo(string cmd)
 {
-    int i = 0;
-    while (i < 4)
-    {
-        cmd.erase(cmd.begin());
-        i++;
-    }
-
-    eraseBlanks(cmd);
     cout << cmd;
     cout << endl;
 }
-
 void pinfo()
 {
     pid_t pid = getpid();
@@ -149,25 +136,276 @@ void pinfo()
     proc_pidinfo(pid, PROC_PIDTASKINFO, 0, &task_info, sizeof(task_info));
     cout << "-" << task_info.pti_virtual_size << "{Virtual Memory}";
 }
-void background(string cmd)
+void spacing(string &cmd)
 {
-    int i = check(cmd);
-
-    if (i == 1)
+    for (int i = 0; i < cmd.size(); i++)
     {
-        int pos = cmd.find("&");
-        cmd.erase(pos + 1);
-        pid_t pid = fork();
-        if (pid == 0)
+        if (cmd[i] == '&')
         {
-            sleep(2);
-            cout << "after waiting : " << endl;
-            ls(cmd);
+            cmd.insert(cmd.begin() + i, ' ');
+            cmd.insert(cmd.begin() + i + 2, ' ');
+            i = i + 2;
         }
     }
 }
+void sortProcess(string cmd, vector<string> &bProcess, string &fProcess)
+{
+    stringstream cmdStream(cmd);
+    string word;
+    vector<string> commands;
+    while (cmdStream >> word)
+    {
+        commands.push_back(word);
+    }
+    bool endwithAnd = false;
+    for (int i = 0; i < commands.size(); i++)
+    {
+        if (commands[i] == " ")
+            continue;
+        if (commands[i] == "&")
+        {
+            endwithAnd = true;
+            continue;
+        }
+        string command = "";
+        for (; i < commands.size() && commands[i] != "&"; i++)
+        {
+            command = command + " " + commands[i];
+        }
+        endwithAnd = false;
+        bProcess.push_back(command);
+    }
+    if (!endwithAnd)
+    {
+        fProcess = bProcess.back();
+        bProcess.pop_back();
+    }
+}
+void mapCommands()
+{
+    commands["ls"] = ls;
+    commands["echo"] = echo;
+}
+void exeCommands(string cmd)
+{
+    int pos = cmd.find(' ');
+    string command = cmd.substr(0, pos);
+    string next;
+    if (pos != string::npos)
+    {
+        next = cmd.substr(pos + 1);
+    }
+    else
+        next = "";
+    if (commands.find(command) != commands.end())
+    {
+        commands[command](next);
+    }
+    else
+    {
+        const char *c = cmd.c_str();
+        system(c);
+    }
+}
+void background(vector<string> bProcess)
+{
+    for (int i = 0; i < bProcess.size(); i++)
+    {
+        pid_t pid = fork();
+        if (pid == 0)
+        {
+            sleep(5);
+            cout << endl;
+            cout << "after waiting : " << endl;
+            const char *c = bProcess[i].c_str();
+            system(c);
+            backgroundPIDs.erase(backgroundPIDs.begin());
+            exit(0);
+        }
+        else if (pid > 0)
+        {
+            backgroundPIDs.push_back(pid);
+        }
+    }
+}
+void printBackgroundPIDs()
+{
+    cout << "BProcess PIDs: " << endl;
+    for (pid_t pid : backgroundPIDs)
+    {
+        cout << pid << endl;
+    }
+}
+int checkRedirect(string cmd)
+{
+    int pos = cmd.find('>');
+    int pos1 = cmd.find('<');
+    if (pos == string::npos && pos1 == string::npos)
+    {
+        return 0;
+    }
+    if (pos != string::npos && pos1 != string::npos)
+    {
+        if (pos1 < pos)
+        {
+            return 2;
+        }
+        else
+            return 1;
+    }
+    if (pos != string::npos)
+    {
+        return 1;
+    }
+    if (pos1 != string::npos)
+    {
+        return 2;
+    }
+    return 0;
+}
+void redirect(string cmd)
+{
+    size_t pos = cmd.find('>');
+    if (pos == string::npos)
+    {
+        return;
+    }
+
+    string command = cmd.substr(0, pos);
+    string file = cmd.substr(pos + (cmd[pos] == '>' && cmd[pos + 1] != '>' ? 1 : 2));
+    eraseBlanks(command);
+    eraseBlanks(file);
+    int i = 0;
+    while (i != string::npos && file[i] != ' ')
+    {
+        i++;
+    }
+    file = file.substr(0, i);
+    int stdout_copy = dup(STDOUT_FILENO);
+    int flags;
+    if (cmd[pos] == '>' && cmd[pos + 1] == '>')
+    {
+        flags = O_WRONLY | O_CREAT | O_APPEND;
+    }
+    else
+    {
+        flags = O_WRONLY | O_CREAT | O_TRUNC;
+    }
+    int fd = open(file.c_str(), flags, S_IRUSR | S_IWUSR);
+    if (fd == -1)
+    {
+        perror("fd");
+        close(stdout_copy);
+        return;
+    }
+
+    if (dup2(fd, STDOUT_FILENO) == -1)
+    {
+        perror("dup2");
+        close(fd);
+        close(stdout_copy);
+        return;
+    }
+
+    close(fd);
+    if (commands.find(command) != commands.end())
+    {
+        commands[command]("");
+    }
+    else
+    {
+        const char *c = command.c_str();
+        system(c);
+    }
+    dup2(stdout_copy, STDOUT_FILENO);
+    close(stdout_copy);
+}
+void inputRedirect(string cmd)
+{
+
+    int pos = cmd.find('<');
+    int pos1 = cmd.find('>');
+    if (pos == string::npos)
+    {
+        return;
+    }
+    string command = cmd.substr(0, pos);
+    string file = cmd.substr(pos + 1);
+    eraseBlanks(command);
+    eraseBlanks(file);
+    int i = 0;
+    while (i != string::npos && file[i] != ' ')
+    {
+        i++;
+    }
+    file = file.substr(0, i);
+    int stdin_copy = dup(STDIN_FILENO);
+    int stdout_copy = dup(STDOUT_FILENO);
+    if (stdin_copy == -1)
+    {
+        perror("dup");
+        return;
+    }
+    int fd = open(file.c_str(), O_RDONLY);
+    if (fd == -1)
+    {
+        perror("open");
+        close(stdin_copy);
+        close(stdout_copy);
+        return;
+    }
+    if (dup2(fd, STDIN_FILENO) == -1)
+    {
+        perror("dup2");
+        close(fd);
+        close(stdin_copy);
+        close(stdout_copy);
+        return;
+    }
+    if (pos1 != string::npos)
+    {
+        string file1 = cmd.substr(pos1 + (cmd[pos1] == '>' && cmd[pos1 + 1] != '>' ? 1 : 2));
+        eraseBlanks(file1);
+        int flags = (cmd[pos1 + 1] == '>') ? O_WRONLY | O_CREAT | O_APPEND : O_WRONLY | O_CREAT | O_TRUNC;
+        int fd1 = open(file1.c_str(), flags, S_IRUSR | S_IWUSR);
+        if (fd1 == -1)
+        {
+            perror("open");
+            close(fd);
+            close(stdin_copy);
+            close(stdout_copy);
+            return;
+        }
+        if (dup2(fd1, STDOUT_FILENO) == -1)
+        {
+            perror("dup2");
+            close(fd1);
+            close(fd);
+            close(stdin_copy);
+            close(stdout_copy);
+            return;
+        }
+        close(fd1);
+    }
+    close(fd);
+    if (commands.find(command) != commands.end())
+    {
+        commands[command]("");
+    }
+    else
+    {
+        const char *c = command.c_str();
+        system(c);
+    }
+
+    dup2(stdin_copy, STDIN_FILENO);
+    dup2(stdout_copy, STDOUT_FILENO);
+    close(stdin_copy);
+    close(stdout_copy);
+}
 int main()
 {
+    mapCommands();
     char *name = getenv("USER");
     char hostName[200];
     char cwd[200];
@@ -188,6 +426,7 @@ int main()
     }
     string cmd;
     string p;
+
     while (true)
     {
         string c(cwd);
@@ -200,6 +439,19 @@ int main()
         cout << name << "@" << hostName << ":" << c << ">";
         getline(cin, cmd);
         eraseBlanks(cmd);
+        spacing(cmd);
+        int i = check(cmd);
+        if (i)
+        {
+            vector<string> bProcess;
+            string fProcess;
+            sortProcess(cmd, bProcess, fProcess);
+            cmd = fProcess;
+            cout << endl;
+            background(bProcess);
+        }
+        eraseBlanks(cmd);
+
         if (cmd == "exit")
         {
             cout << "Exiting shell......";
@@ -220,43 +472,22 @@ int main()
                 getcwd(cwd, sizeof(cwd));
             }
         }
+
         else if (cmd.substr(0, 3) == "pwd")
         {
+            cout << cwd << endl;
         }
-        else if (cmd.substr(0, 5) == "echo ")
+        else if (cmd == "jobs")
         {
-            int i = check(cmd);
-            cout << "i : " << i << endl;
-            if (i == 1)
-            {
-                background(cmd);
-            }
-            else
-                echo(cmd);
+            printBackgroundPIDs();
         }
-        else if (cmd.substr(0, 2) == "ls")
+
+        else if (checkRedirect(cmd))
         {
-            
-            int i = check(cmd);
-            cout << " i : " << i << endl;
-            if (i == 1)
-            {
-                background(cmd);
-            }
-            else if (i == -1)
-            {
-                ls(cmd);
-            }
+            checkRedirect(cmd) == 1 ? redirect(cmd) : inputRedirect(cmd);
         }
-        else if (cmd == "pinfo")
-        {
-            pinfo();
-        }
+
         else
-        {
-            // const char *c = cmd.c_str();
-            // system(c);
-            cout << "wrong cmd" << endl;
-        }
+            exeCommands(cmd);
     }
 }
