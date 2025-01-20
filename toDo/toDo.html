@@ -2,11 +2,12 @@
 <html>
     <head>
         <title>todo</title>
+        <script src="https://cdn.jsdelivr.net/npm/uuid@8.3.2/dist/umd/uuid.min.js"></script>
         </head>
     <body>
         <h1>TODO LIST</h1>
-        <input class="todo-input" placeholder="Enter">
-        <button class="todo-button">ADD</button>
+        <input class="todo-input" placeholder="Enter" onkeydown="enterHandler(event)">
+        <button class="todo-button" onclick="addTodo()">ADD</button>
         <h1>DO</h1>
         <button class="do-reset-button">Reset</button>
         <ul class="todo-list"></ul>
@@ -14,5 +15,5 @@
         <button class="done-reset-button">Reset</button>
         <ul class="done-list"></ul>
     </body>
-    <script type="module" src="toDo.js"></script>
+    <script  src="toDo.js"></script>
     </html>
